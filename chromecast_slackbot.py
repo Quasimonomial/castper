@@ -1,6 +1,7 @@
 from __future__ import print_function
 import os
 import time
+import re
 from slackclient import SlackClient
 from packyou.github.ur1katz.pychromecast import pychromecast as urpycast
 from packyou.github.ur1katz.pychromecast.controllers.youtube import YouTubeController as urytc
@@ -9,6 +10,7 @@ from packyou.github.ur1katz.pychromecast.controllers.youtube import YouTubeContr
 BOT_ID = os.environ.get('BOT_ID')
 AT_BOT = "<@" + BOT_ID + ">"
 READ_WEBSOCKET_DELAY = 1
+EMOJI_PATTERN = re.compile(u'([\U00002600-\U000027BF])|([\U0001f300-\U0001f64F])|([\U0001f680-\U0001f6FF])')
 
 
 class SlackBot:
@@ -19,18 +21,30 @@ class SlackBot:
 
     def __init__(self):
         self.known_casts = {}
+        self.youtube_controller = urytc()
         self.start_up_slack_bot()
 
     def find_chromecasts(self):
         self.known_casts = {}
         for cast in urpycast.get_chromecasts():
-            self.known_casts[cast.device.friendly_name] = cast
+            self.known_casts[re.sub(EMOJI_PATTERN, '', cast.device.friendly_name).strip()] = cast
 
     def cast_name_list(self):
         cast_names = []
         for cast_name in self.known_casts.keys():
             cast_names.append(cast_name)
         return cast_names
+
+    def send_video_to_chromecast(self, cast_name, youtube_id):
+        cast = self.known_casts[cast_name]
+        cast.register_handler(self.youtube_controller)
+        self.youtube_controller.play_video(youtube_id)
+
+    def parse_play_command(self, command):
+        youtube_id = command.split()[1]
+        cast_name = command.split(' on ')[1]
+        self.send_video_to_chromecast(cast_name, youtube_id)
+        return 'playing song'
 
     def handle_command(self, command, channel):
         """
@@ -39,11 +53,19 @@ class SlackBot:
             returns back what it needs for clarification.
         """
 
-        if command.startswith('do'):
-            response = "Sure...write some more code then I can do that!"
-        elif command.startswith('find casts'):
+        if command.startswith('find casts'):
             self.find_chromecasts()
             response = "Looking for some chromecasts!  I found %s!" % self.cast_name_list()
+        elif command.startswith('list casts'):
+            response = "I'm a smart bot!  I know about these chromecasts: %s!" % self.cast_name_list()
+        elif command.startswith('play'):
+            response = self.parse_play_command(command)
+        elif command.startswith('help'):
+            response = "What can this bot do?\n" \
+                       "`help` will display this info\n" \
+                       "`find casts` will tell the bot to find the chromecasts it can access\n" \
+                       "`list casts` will tell the bot to reveal the chromecasts it know\n" \
+                       "`play [youtube id] on [cast]` plays a video on the named chromecast"
         else:
             response = "Not sure what you mean. Feel free to ask for *HELP* though."
 
@@ -60,8 +82,7 @@ class SlackBot:
             for output in output_list:
                 if output and 'text' in output and AT_BOT in output['text']:
                     # return text after the @ mention, whitespace removed
-                    return output['text'].split(AT_BOT)[1].strip().lower(), \
-                           output['channel']
+                    return output['text'].split(AT_BOT)[1].strip(), output['channel']
         return None, None
 
     def start_up_slack_bot(self):
