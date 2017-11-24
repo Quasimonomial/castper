@@ -14,11 +14,6 @@ EMOJI_PATTERN = re.compile(u'([\U00002600-\U000027BF])|([\U0001f300-\U0001f64F])
 
 
 class SlackBot:
-    # COMMANDS = {
-    #     'DO': 'do',
-    #     'FINDCASTS': 'find chromecasts'
-    # }
-
     def __init__(self):
         self.known_casts = {}
         self.youtube_controller = urytc()
@@ -53,21 +48,24 @@ class SlackBot:
             returns back what it needs for clarification.
         """
 
-        if command.startswith('find casts'):
-            self.find_chromecasts()
-            response = "Looking for some chromecasts!  I found %s!" % self.cast_name_list()
-        elif command.startswith('list casts'):
-            response = "I'm a smart bot!  I know about these chromecasts: %s!" % self.cast_name_list()
-        elif command.startswith('play'):
-            response = self.parse_play_command(command)
-        elif command.startswith('help'):
-            response = "What can this bot do?\n" \
-                       "`help` will display this info\n" \
-                       "`find casts` will tell the bot to find the chromecasts it can access\n" \
-                       "`list casts` will tell the bot to reveal the chromecasts it know\n" \
-                       "`play [youtube id] on [cast]` plays a video on the named chromecast"
-        else:
-            response = "Not sure what you mean. Feel free to ask for *HELP* though."
+        try:
+            if command.startswith('find casts'):
+                self.find_chromecasts()
+                response = "Looking for some chromecasts!  I found %s!" % self.cast_name_list()
+            elif command.startswith('list casts'):
+                response = "I'm a smart bot!  I know about these chromecasts: %s!" % self.cast_name_list()
+            elif command.startswith('play'):
+                response = self.parse_play_command(command)
+            elif command.startswith('help'):
+                response = "What can this bot do?\n" \
+                           "`help` will display this info\n" \
+                           "`find casts` will tell the bot to find the chromecasts it can access\n" \
+                           "`list casts` will tell the bot to reveal the chromecasts it know\n" \
+                           "`play [youtube id] on [cast]` plays a video on the named chromecast"
+            else:
+                response = "Not sure what you mean. Feel free to ask for *HELP* though."
+        except:
+            response = "Man it looks like Travis coded the slackbot poorly.  You should tell him about it @quasimonomial"
 
         self.slack_client.api_call("chat.postMessage", channel=channel, text=response, as_user=True)
 
@@ -81,7 +79,6 @@ class SlackBot:
         if output_list and len(output_list) > 0:
             for output in output_list:
                 if output and 'text' in output and AT_BOT in output['text']:
-                    # return text after the @ mention, whitespace removed
                     return output['text'].split(AT_BOT)[1].strip(), output['channel']
         return None, None
 
