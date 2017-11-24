@@ -80,11 +80,6 @@ class SlackBot:
         return 'playing song'
 
     def parse_slack_output(self, slack_rtm_output):
-        """
-            The Slack Real Time Messaging API is an events firehose.
-            this parsing function returns None unless a message is
-            directed at the Bot, based on its ID.
-        """
         output_list = slack_rtm_output
         if output_list and len(output_list) > 0:
             for output in output_list:
@@ -92,10 +87,12 @@ class SlackBot:
                     return output['text'].split(AT_BOT)[1].strip(), output['channel']
         return None, None
 
-    def start_up_slack_bot(self):
+    def start_up_slack_bot(self, initial_find_casts = False):
         self.slack_client = SlackClient(os.environ.get('SLACK_BOT_TOKEN'))
         if self.slack_client.rtm_connect():
             print('chromecast bot up and running')
+            if initial_find_casts:
+                self.chromecast_handler.find_chromecasts()
             while True:
                 command, channel = self.parse_slack_output(self.slack_client.rtm_read())
                 if command and channel:
@@ -108,7 +105,7 @@ class SlackBot:
 
 def main():
     bot = SlackBot()
-    bot.start_up_slack_bot()
+    bot.start_up_slack_bot(True)
 
 
 if __name__ == "__main__":
