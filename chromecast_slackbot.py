@@ -9,15 +9,16 @@ from packyou.github.ur1katz.pychromecast.controllers.youtube import YouTubeContr
 
 BOT_ID = os.environ.get('BOT_ID')
 AT_BOT = "<@" + BOT_ID + ">"
-READ_WEBSOCKET_DELAY = 1
 EMOJI_PATTERN = re.compile(u'([\U00002600-\U000027BF])|([\U0001f300-\U0001f64F])|([\U0001f680-\U0001f6FF])')
 
 
 class SlackBot:
-    def __init__(self):
+    def __init__(self, read_websocket_delay = 1):
+        self.read_websocket_delay = read_websocket_delay
+
         self.known_casts = {}
         self.youtube_controller = urytc()
-        self.start_up_slack_bot()
+
 
     def find_chromecasts(self):
         self.known_casts = {}
@@ -91,13 +92,15 @@ class SlackBot:
                 if command and channel:
                     print("Handling Command [%s] on Channel [%s]" % (command, channel))
                     self.handle_command(command, channel)
-                time.sleep(READ_WEBSOCKET_DELAY)
+                time.sleep(self.read_websocket_delay)
         else:
             print("Connection Failed")
 
 
 def main():
     bot = SlackBot()
+    bot.start_up_slack_bot()
+
 
 if __name__ == "__main__":
     main()
