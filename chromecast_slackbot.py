@@ -11,6 +11,26 @@ BOT_ID = os.environ.get('BOT_ID')
 AT_BOT = "<@" + BOT_ID + ">"
 EMOJI_PATTERN = re.compile(u'([\U00002600-\U000027BF])|([\U0001f300-\U0001f64F])|([\U0001f680-\U0001f6FF])')
 
+class ChromeCastHandler:
+    def __init__(self):
+        self.known_casts = {}
+
+    def cast_name_list(self):
+        cast_names = []
+        for cast_name in self.known_casts.keys():
+            cast_names.append(cast_name)
+        return cast_names
+
+    def find_chromecasts(self):
+        self.known_casts = {}
+        for cast in urpycast.get_chromecasts():
+            self.known_casts[re.sub(EMOJI_PATTERN, '', cast.device.friendly_name).strip()] = SlackCast(cast)
+
+    def send_video_to_chromecast(self, cast_name, youtube_id):
+        cast = self.known_casts[cast_name]
+        cast.play_youtube_video(youtube_id)
+
+
 class SlackCast:
     def __init__(self, cast):
         self.cast = cast
@@ -21,47 +41,18 @@ class SlackCast:
         # TODO: won't play a song if one has already started
         self.youtube_controller.play_video(youtube_id)
 
-
-
 class SlackBot:
     def __init__(self, read_websocket_delay = 1):
         self.read_websocket_delay = read_websocket_delay
-        self.known_casts = {}
-
-    def find_chromecasts(self):
-        self.known_casts = {}
-        for cast in urpycast.get_chromecasts():
-            self.known_casts[re.sub(EMOJI_PATTERN, '', cast.device.friendly_name).strip()] = SlackCast(cast)
-
-    def cast_name_list(self):
-        cast_names = []
-        for cast_name in self.known_casts.keys():
-            cast_names.append(cast_name)
-        return cast_names
-
-    def send_video_to_chromecast(self, cast_name, youtube_id):
-        cast = self.known_casts[cast_name]
-        cast.play_youtube_video(youtube_id)
-
-    def parse_play_command(self, command):
-        youtube_id = command.split()[1]
-        cast_name = command.split(' on ')[1]
-        self.send_video_to_chromecast(cast_name, youtube_id)
-        return 'playing song'
+        self.chromecast_handler = ChromeCastHandler()
 
     def handle_command(self, command, channel):
-        """
-            Receives commands directed at the bot and determines if they
-            are valid commands. If so, then acts on the commands. If not,
-            returns back what it needs for clarification.
-        """
-
         try:
             if command.startswith('find casts'):
-                self.find_chromecasts()
-                response = "Looking for some chromecasts!  I found %s!" % self.cast_name_list()
+                self.chromecast_handler.find_chromecasts()
+                response = "Looking for some chromecasts!  I found %s!" % self.chromecast_handler.cast_name_list()
             elif command.startswith('list casts'):
-                response = "I'm a smart bot!  I know about these chromecasts: %s!" % self.cast_name_list()
+                response = "I'm a smart bot!  I know about these chromecasts: %s!" % self.chromecast_handler.cast_name_list()
             elif command.startswith('play'):
                 response = self.parse_play_command(command)
             elif command.startswith('help'):
@@ -77,6 +68,12 @@ class SlackBot:
             response = "Man it looks like Travis coded the slackbot poorly.  You should tell him about it @quasimonomial"
 
         self.slack_client.api_call("chat.postMessage", channel=channel, text=response, as_user=True)
+
+    def parse_play_command(self, command):
+        youtube_id = command.split()[1]
+        cast_name = command.split(' on ')[1]
+        self.chromecast_handler.send_video_to_chromecast(cast_name, youtube_id)
+        return 'playing song'
 
     def parse_slack_output(self, slack_rtm_output):
         """
