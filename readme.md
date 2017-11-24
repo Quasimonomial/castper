@@ -1,4 +1,6 @@
-# Chromecast Slackbot
+# Castper
+
+This is a Slack Bot that interacts with Chromecast.
 
 
 ### Purpose
