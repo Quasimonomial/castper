@@ -47,15 +47,16 @@ class SlackBot:
         self.chromecast_handler = ChromeCastHandler()
 
     def handle_command(self, command, channel):
+        downcase_command = command.lower()
         try:
-            if command.startswith('find casts'):
+            if downcase_command.startswith('find casts'):
                 self.chromecast_handler.find_chromecasts()
                 response = "Looking for some chromecasts!  I found %s!" % self.chromecast_handler.cast_name_list()
-            elif command.startswith('list casts'):
+            elif downcase_command.startswith('list casts'):
                 response = "I'm a smart bot!  I know about these chromecasts: %s!" % self.chromecast_handler.cast_name_list()
-            elif command.startswith('play'):
+            elif downcase_command.startswith('play'):
                 response = self.parse_play_command(command)
-            elif command.startswith('help'):
+            elif downcase_command.startswith('help'):
                 response = "What can this bot do?\n" \
                            "`help` will display this info\n" \
                            "`find casts` will tell the bot to find the chromecasts it can access\n" \
