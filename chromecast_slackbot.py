@@ -30,7 +30,6 @@ class ChromeCastHandler:
         cast = self.known_casts[cast_name]
         cast.play_youtube_video(youtube_id)
 
-
 class SlackCast:
     def __init__(self, cast):
         self.cast = cast
@@ -38,8 +37,12 @@ class SlackCast:
         self.cast.register_handler(self.youtube_controller)
 
     def play_youtube_video(self, youtube_id):
-        # TODO: won't play a song if one has already started
-        self.youtube_controller.play_video(youtube_id)
+        if not self.youtube_controller.in_session:
+            self.youtube_controller.play_video(youtube_id)
+        else:
+            self.youtube_controller.add_to_queue(youtube_id)
+
+
 
 class SlackBot:
     def __init__(self, read_websocket_delay = 1):
