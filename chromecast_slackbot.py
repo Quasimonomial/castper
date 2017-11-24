@@ -11,19 +11,27 @@ BOT_ID = os.environ.get('BOT_ID')
 AT_BOT = "<@" + BOT_ID + ">"
 EMOJI_PATTERN = re.compile(u'([\U00002600-\U000027BF])|([\U0001f300-\U0001f64F])|([\U0001f680-\U0001f6FF])')
 
+class SlackCast:
+    def __init__(self, cast):
+        self.cast = cast
+        self.youtube_controller = urytc()
+        self.cast.register_handler(self.youtube_controller)
+
+    def play_youtube_video(self, youtube_id):
+        # TODO: won't play a song if one has already started
+        self.youtube_controller.play_video(youtube_id)
+
+
 
 class SlackBot:
     def __init__(self, read_websocket_delay = 1):
         self.read_websocket_delay = read_websocket_delay
-
         self.known_casts = {}
-        self.youtube_controller = urytc()
-
 
     def find_chromecasts(self):
         self.known_casts = {}
         for cast in urpycast.get_chromecasts():
-            self.known_casts[re.sub(EMOJI_PATTERN, '', cast.device.friendly_name).strip()] = cast
+            self.known_casts[re.sub(EMOJI_PATTERN, '', cast.device.friendly_name).strip()] = SlackCast(cast)
 
     def cast_name_list(self):
         cast_names = []
@@ -33,8 +41,7 @@ class SlackBot:
 
     def send_video_to_chromecast(self, cast_name, youtube_id):
         cast = self.known_casts[cast_name]
-        cast.register_handler(self.youtube_controller)
-        self.youtube_controller.play_video(youtube_id)
+        cast.play_youtube_video(youtube_id)
 
     def parse_play_command(self, command):
         youtube_id = command.split()[1]
@@ -65,7 +72,8 @@ class SlackBot:
                            "`play [youtube id] on [cast]` plays a video on the named chromecast"
             else:
                 response = "Not sure what you mean. Feel free to ask for *HELP* though."
-        except:
+        except Exception as e:
+            print(e)
             response = "Man it looks like Travis coded the slackbot poorly.  You should tell him about it @quasimonomial"
 
         self.slack_client.api_call("chat.postMessage", channel=channel, text=response, as_user=True)
