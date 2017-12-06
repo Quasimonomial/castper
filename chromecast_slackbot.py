@@ -14,6 +14,7 @@ EMOJI_PATTERN = re.compile(u'([\U00002600-\U000027BF])|([\U0001f300-\U0001f64F])
 class ChromeCastHandler:
     def __init__(self):
         self.known_casts = {}
+        self.default_cast = None
 
     def cast_name_list(self):
         cast_names = []
@@ -21,7 +22,7 @@ class ChromeCastHandler:
             cast_names.append(cast_name)
         return cast_names
 
-    # Return Cast by name, or false if not found
+    # Return cast by name, or false if not found
     def fetch_cast(self, cast_name):
         if cast_name in self.known_casts:
             return self.known_casts[cast_name]
@@ -30,7 +31,11 @@ class ChromeCastHandler:
 
     def find_chromecasts(self):
         self.known_casts = {}
+        self.default_cast = None
+
         for cast in urpycast.get_chromecasts():
+            if not self.default_cast:
+                self.default_cast = re.sub(EMOJI_PATTERN, '', cast.device.friendly_name).strip()
             self.known_casts[re.sub(EMOJI_PATTERN, '', cast.device.friendly_name).strip()] = SlackCast(cast)
 
     def send_video_to_chromecast(self, cast_name, youtube_id):
@@ -40,6 +45,14 @@ class ChromeCastHandler:
             return True
         else:
             return False
+
+    # Remember that we store default cast as a string, not as the cast object itself
+    def set_default_cast(self, cast_name):
+        if cast_name in self.known_casts:
+            self.default_cast = cast_name
+            return cast_name
+        else:
+            return None
 
 class SlackCast:
     def __init__(self, cast):
@@ -53,8 +66,6 @@ class SlackCast:
         else:
             self.youtube_controller.add_to_queue(youtube_id)
 
-
-
 class SlackBot:
     def __init__(self, read_websocket_delay = 1):
         self.read_websocket_delay = read_websocket_delay
@@ -67,15 +78,18 @@ class SlackBot:
                 self.chromecast_handler.find_chromecasts()
                 response = "Looking for some chromecasts!  I found %s!" % self.chromecast_handler.cast_name_list()
             elif downcase_command.startswith('list casts'):
-                response = "I'm a smart bot!  I know about these chromecasts: %s!" % self.chromecast_handler.cast_name_list()
+                response = self.list_casts()
+            elif downcase_command.startswith('set default cast'):
+                response = self.set_default_cast(command)
             elif downcase_command.startswith('play'):
                 response = self.parse_play_command(command)
             elif downcase_command.startswith('help'):
                 response = "What can this bot do?\n" \
                            "`help` will display this info\n" \
-                           "`find casts` will tell the bot to find the chromecasts it can access\n" \
-                           "`list casts` will tell the bot to reveal the chromecasts it know\n" \
-                           "`play [youtube id] on [cast]` plays a video on the named chromecast"
+                           "`find casts` will tell the bot to find the chromecasts it can access.\n" \
+                           "`list casts` will tell the bot to reveal the chromecasts it know.\n" \
+                           "`play [youtube id] on [cast]` plays a video on the named chromecast.\n" \
+                           "`set default cast [cast]` will set the default cast to the named cast, if it exists."
             else:
                 response = "Not sure what you mean. Feel free to ask for *HELP* though."
         except Exception as e:
@@ -83,6 +97,20 @@ class SlackBot:
             response = "Man it looks like Travis coded the slackbot poorly.  You should tell him about it @quasimonomial"
 
         self.slack_client.api_call("chat.postMessage", channel=channel, text=response, as_user=True)
+
+    def list_casts(self):
+        known_casts = self.chromecast_handler.cast_name_list()
+        default_cast = self.chromecast_handler.default_cast
+        message = ''
+
+        if known_casts:
+            message = "I'm a smart bot!  I know about these chromecasts: %s!" % known_casts
+            if default_cast:
+                message += " The default chromecast is `%s`." % default_cast
+        else:
+            message = "I don't know any chromecasts.  Try running `find casts`"
+
+        return message
 
     def parse_play_command(self, command):
         youtube_id = command.split()[1]
@@ -92,7 +120,6 @@ class SlackBot:
         else:
             return 'chormecast not found'
 
-
     def parse_slack_output(self, slack_rtm_output):
         output_list = slack_rtm_output
         if output_list and len(output_list) > 0:
@@ -100,6 +127,14 @@ class SlackBot:
                 if output and 'text' in output and AT_BOT in output['text']:
                     return output['text'].split(AT_BOT)[1].strip(), output['channel']
         return None, None
+
+    def set_default_cast(self, command):
+        new_cast_name = command[len("set default cast "):]
+        if self.chromecast_handler.set_default_cast(new_cast_name):
+            message = "Default chromecast now set to `%s`." % new_cast_name
+        else:
+            message = "Sorry, that chromecast wasn't found."
+        return message
 
     def start_up_slack_bot(self, initial_find_casts = False):
         self.slack_client = SlackClient(os.environ.get('SLACK_BOT_TOKEN'))
