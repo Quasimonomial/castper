@@ -21,14 +21,25 @@ class ChromeCastHandler:
             cast_names.append(cast_name)
         return cast_names
 
+    # Return Cast by name, or false if not found
+    def fetch_cast(self, cast_name):
+        if cast_name in self.known_casts:
+            return self.known_casts[cast_name]
+        else:
+            return False
+
     def find_chromecasts(self):
         self.known_casts = {}
         for cast in urpycast.get_chromecasts():
             self.known_casts[re.sub(EMOJI_PATTERN, '', cast.device.friendly_name).strip()] = SlackCast(cast)
 
     def send_video_to_chromecast(self, cast_name, youtube_id):
-        cast = self.known_casts[cast_name]
-        cast.play_youtube_video(youtube_id)
+        cast = self.fetch_cast[cast_name]
+        if cast:
+            cast.play_youtube_video(youtube_id)
+            return True
+        else:
+            return False
 
 class SlackCast:
     def __init__(self, cast):
