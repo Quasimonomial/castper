@@ -26,7 +26,7 @@ class ChromeCastHandler:
         if cast_name in self.known_casts:
             return self.known_casts[cast_name]
         else:
-            return False
+            return None
 
     def find_chromecasts(self):
         self.known_casts = {}
@@ -87,8 +87,11 @@ class SlackBot:
     def parse_play_command(self, command):
         youtube_id = command.split()[1]
         cast_name = command.split(' on ')[1]
-        self.chromecast_handler.send_video_to_chromecast(cast_name, youtube_id)
-        return 'playing song'
+        if self.chromecast_handler.send_video_to_chromecast(cast_name, youtube_id):
+            return 'playing song'
+        else:
+            return 'chormecast not found'
+
 
     def parse_slack_output(self, slack_rtm_output):
         output_list = slack_rtm_output
